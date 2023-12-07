@@ -80,7 +80,7 @@ class PaymentsDive:
         # -
 
         self.driver.get(
-            "https://www.paymentsdive.com/topic/banking/?page=1")  # Открыть первую страницу с материалами EMVCo в браузере
+            "https://www.paymentsdive.com/?page=2")  # Открыть страницу с материалами
         time.sleep(5)
 
         # Окно с куками пропадает самостоятельно через 2-3 секунды
@@ -124,11 +124,7 @@ class PaymentsDive:
                     other_data = ''
                 #// *[ @ id = "main-content"] / ul / li[1] / div[2] / span[2]
                 #// *[ @ id = "main-content"] / ul / li[2] / div[2] / span[2]
-                try:
-                    date = element.find_element(By.TAG_NAME, '')
-                except:
-                    self.logger.exception('Не удалось извлечь date_text')
-                    date = ' '
+
 
                 #try:
                 #    date = dateparser.parse(date_text)
@@ -150,17 +146,44 @@ class PaymentsDive:
                     self.logger.exception('Не удалось извлечь web_link')
                     web_link = None
 
+                self.driver.get(web_link)
+
+                try:
+                    pub_date = self.utc.localize(dateparser.parse(element.find_element(By.CLASS_NAME, 'date date-bottom-border').text))
+                except:
+                    self.logger.exception('Не удалось извлечь pub_date')
+                    pub_date = None
+
+                try:
+                    text_content = element.find_element(By.CLASS_NAME, 'large medium article-body').text
+                except:
+                    self.logger.exception('Не удалось извлечь text_content')
+                    text_content = None
+
                 self._content_document.append(SPP_document(
                     doc_id=None,
                     title=title,
                     abstract=abstract,
-                    text=None,
+                    text=text_content,
                     web_link=web_link,
                     local_link=None,
                     other_data=other_data,
-                    pub_date=date,
+                    pub_date=pub_date,
                     load_date=None,
                 ))
+
+                # Логирование найденного документа
+                self.logger.info(self._find_document_text_for_logger(SPP_document(
+                                    doc_id=None,
+                                    title=title,
+                                    abstract=abstract,
+                                    text=None,
+                                    web_link=web_link,
+                                    local_link=None,
+                                    other_data=other_data,
+                                    pub_date=date,
+                                    load_date=None,
+                                )))
 
             try:
                 pagination_arrow = self.driver.find_element(By.XPATH, '//*[@id="main-content"]/div/a')
@@ -169,9 +192,9 @@ class PaymentsDive:
                 pg_num = self.driver.find_element(By.ID, 'current_page').text
                 self.logger.info(f'Выполнен переход на след. страницу: {pg_num}')
 
-            #                 if int(pg_num) > 5:
-            #                     self.logger.info('Выполнен переход на 6-ую страницу. Принудительное завершение парсинга.')
-            #                     break
+                if int(pg_num) > 5:
+                    self.logger.info('Выполнен переход на 6-ую страницу. Принудительное завершение парсинга.')
+                    break
 
             except:
                 self.logger.exception('Не удалось найти переход на след. страницу. Прерывание цикла обработки')
@@ -179,8 +202,7 @@ class PaymentsDive:
 
 
 
-        # Логирование найденного документа
-            #self.logger.info(self._find_document_text_for_logger(_content_document))
+
 
         # ---
         # ========================================
