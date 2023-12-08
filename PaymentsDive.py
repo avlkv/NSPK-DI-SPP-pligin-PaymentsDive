@@ -45,7 +45,7 @@ class PaymentsDive:
         """
         # Обнуление списка
         self._content_document = []
-        self.driver = driver
+        self.driver = webdriver
         self.wait = WebDriverWait(self.driver, timeout=20)
         # Логер должен подключаться так. Вся настройка лежит на платформе
         self.logger = logging.getLogger(self.__class__.__name__)
