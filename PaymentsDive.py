@@ -9,8 +9,12 @@ import time
 
 import dateparser
 from selenium.webdriver.common.by import By
-
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from src.spp.types import SPP_document
+from datetime import datetime
+import pytz
+from random import uniform
 
 
 class PaymentsDive:
@@ -26,9 +30,11 @@ class PaymentsDive:
     """
 
     SOURCE_NAME = 'PaymentsDive'
-    #HOST = "https://www.paymentsdive.com/"
-    HOST = "https://www.paymentsdive.com/topic/banking/?page=1"
+    # HOST = "https://www.paymentsdive.com/"
+    HOST = "https://www.paymentsdive.com/?page=2"
     _content_document: list[SPP_document]
+    utc = pytz.UTC
+    date_begin = utc.localize(datetime(2023, 12, 6))
 
     def __init__(self, driver, *args, **kwargs):
         """
@@ -40,7 +46,7 @@ class PaymentsDive:
         # Обнуление списка
         self._content_document = []
         self.driver = driver
-
+        self.wait = WebDriverWait(self.driver, timeout=20)
         # Логер должен подключаться так. Вся настройка лежит на платформе
         self.logger = logging.getLogger(self.__class__.__name__)
 
@@ -81,81 +87,104 @@ class PaymentsDive:
 
         self.driver.get(
             "https://www.paymentsdive.com/?page=2")  # Открыть страницу с материалами
-        time.sleep(5)
+        self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.dash-feed')))
 
         # Окно с куками пропадает самостоятельно через 2-3 секунды
-        #try:
+        # try:
         #    cookies_btn = self.driver.find_element(By.CLASS_NAME, 'ui-button').find_element(By.XPATH,
         #                                                                                    '//*[text() = \'Accept\']')
         #    self.driver.execute_script('arguments[0].click()', cookies_btn)
         #    self.logger.info('Cookies убран')
-        #except:
+        # except:
         #    self.logger.exception('Не найден cookies')
         #    pass
 
-        #self.logger.info('Прекращен поиск Cookies')
-        #time.sleep(3)
+        # self.logger.info('Прекращен поиск Cookies')
+        time.sleep(3)
 
         while True:
 
             self.logger.debug('Загрузка списка элементов...')
 
-            doc_table = self.driver.find_element(By.XPATH, '//*[@id="main-content"]').find_elements(By.TAG_NAME, 'li')
+            doc_table = self.driver.find_element(By.CLASS_NAME, 'dash-feed').find_elements(By.XPATH,
+                                                                                           '//*[contains(@class,\'row feed__item\')]')
             self.logger.debug('Обработка списка элементов...')
 
             # Цикл по всем строкам таблицы элементов на текущей странице
-            for element in doc_table:
+            self.logger.info(f'len(doc_table) = {len(doc_table)}')
+            # print(doc_table)
+            # for element in doc_table:
+            #     print(element.text)
+            #     print('*'*45)
+
+            for i, element in enumerate(doc_table):
+                # continue
+                # print(i)
+                # print(element)
+                # print(doc_table[i])
+                if 'feed-item-ad' in doc_table[i].get_attribute('class'):
+                    print(doc_table[i].get_attribute('class'))
+                    print(doc_table[i].text)
+                    continue
 
                 element_locked = False
 
                 try:
-                    title = element.find_element(By.CLASS_NAME, 'feed__title').text
-                    #title = element.find_element(By.XPATH, '//*[@id="feed-item-title-1"]/a').text
+                    title = doc_table[i].find_element(By.XPATH, './/*[contains(@class,\'feed__title\')]').text
+                    # print(title)
+                    # title = element.find_element(By.XPATH, '//*[@id="feed-item-title-1"]/a').text
 
                 except:
                     self.logger.exception('Не удалось извлечь title')
                     title = ' '
 
+                # try:
+                #     other_data = element.find_element(By.CLASS_NAME, "secondary-label").text
+                # except:
+                #     self.logger.exception('Не удалось извлечь other_data')
+                #     other_data = ''
+                # // *[ @ id = "main-content"] / ul / li[1] / div[2] / span[2]
+                # // *[ @ id = "main-content"] / ul / li[2] / div[2] / span[2]
+                other_data = None
 
-                try:
-                    other_data = element.find_element(By.CLASS_NAME, "secondary-label").text
-                except:
-                    self.logger.exception('Не удалось извлечь other_data')
-                    other_data = ''
-                #// *[ @ id = "main-content"] / ul / li[1] / div[2] / span[2]
-                #// *[ @ id = "main-content"] / ul / li[2] / div[2] / span[2]
-
-
-                #try:
+                # try:
                 #    date = dateparser.parse(date_text)
-                #except:
+                # except:
                 #    self.logger.exception('Не удалось извлечь date')
                 #    date = None
 
                 try:
-                    abstract = element.find_element(By.CLASS_NAME, 'feed__description').text
+                    abstract = doc_table[i].find_element(By.CLASS_NAME, 'feed__description').text
                 except:
-                    self.logger.exception('Не удалось извлечь abstract')
-                    abstract = ' '
+                    # self.logger.exception('Не удалось извлечь abstract')
+                    abstract = None
 
                 book = ' '
 
                 try:
-                    web_link = element.find_element(By.TAG_NAME, 'a').get_attribute('href')
+                    web_link = doc_table[i].find_element(By.XPATH, './/*[contains(@class,\'feed__title\')]').find_element(
+                        By.TAG_NAME, 'a').get_attribute('href')
                 except:
-                    self.logger.exception('Не удалось извлечь web_link')
+                    self.logger.exception('Не удалось извлечь web_link, пропущен')
                     web_link = None
+                    continue
+                    # web_link = None
 
+                self.driver.execute_script("window.open('');")
+                self.driver.switch_to.window(self.driver.window_handles[1])
                 self.driver.get(web_link)
+                time.sleep(5)
+                # self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.print-wrapper')))
 
                 try:
-                    pub_date = self.utc.localize(dateparser.parse(element.find_element(By.CLASS_NAME, 'date date-bottom-border').text))
+                    pub_date = self.utc.localize(
+                        dateparser.parse(' '.join(self.driver.find_element(By.CLASS_NAME, 'published-info').text.split()[1:])))
                 except:
-                    self.logger.exception('Не удалось извлечь pub_date')
+                    # self.logger.exception('Не удалось извлечь pub_date')
                     pub_date = None
 
                 try:
-                    text_content = element.find_element(By.CLASS_NAME, 'large medium article-body').text
+                    text_content = self.driver.find_element(By.XPATH, '//div[contains(@class, \'large medium article-body\')]').text
                 except:
                     self.logger.exception('Не удалось извлечь text_content')
                     text_content = None
@@ -171,38 +200,40 @@ class PaymentsDive:
                     pub_date=pub_date,
                     load_date=None,
                 ))
-
+                # print(web_link)
+                # print(title)
+                # print(pub_date)
+                # print(text_content)
+                # print('-' * 45)
                 # Логирование найденного документа
                 self.logger.info(self._find_document_text_for_logger(SPP_document(
-                                    doc_id=None,
-                                    title=title,
-                                    abstract=abstract,
-                                    text=None,
-                                    web_link=web_link,
-                                    local_link=None,
-                                    other_data=other_data,
-                                    pub_date=date,
-                                    load_date=None,
-                                )))
-
+                    doc_id=None,
+                    title=title,
+                    abstract=abstract,
+                    text=None,
+                    web_link=web_link,
+                    local_link=None,
+                    other_data=other_data,
+                    pub_date=pub_date,
+                    load_date=None,
+                )))
+                self.driver.close()
+                self.driver.switch_to.window(self.driver.window_handles[0])
             try:
-                pagination_arrow = self.driver.find_element(By.XPATH, '//*[@id="main-content"]/div/a')
+                pagination_arrow = self.driver.find_element(By.XPATH, '//div[contains(@class,\'pagination\')]/a[2]')
+                pg_num = pagination_arrow.get_attribute('href')
                 self.driver.execute_script('arguments[0].click()', pagination_arrow)
                 time.sleep(3)
-                pg_num = self.driver.find_element(By.ID, 'current_page').text
                 self.logger.info(f'Выполнен переход на след. страницу: {pg_num}')
+                print('=' * 90)
 
-                if int(pg_num) > 5:
+                if int(pg_num[-1]) > 5:
                     self.logger.info('Выполнен переход на 6-ую страницу. Принудительное завершение парсинга.')
                     break
 
             except:
                 self.logger.exception('Не удалось найти переход на след. страницу. Прерывание цикла обработки')
                 break
-
-
-
-
 
         # ---
         # ========================================
