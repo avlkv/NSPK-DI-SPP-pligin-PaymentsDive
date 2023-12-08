@@ -36,7 +36,7 @@ class PaymentsDive:
     utc = pytz.UTC
     date_begin = utc.localize(datetime(2023, 12, 6))
 
-    def __init__(self, driver, *args, **kwargs):
+    def __init__(self, webdriver, *args, **kwargs):
         """
         Конструктор класса парсера
 
